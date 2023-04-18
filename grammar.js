@@ -70,8 +70,8 @@ module.exports = grammar ({
     ),
 
     mul_expr: $ => seq(
-
-    )
+	$.primary,
+    ),
 
     primary: $ => choice(
         $.identifier,
