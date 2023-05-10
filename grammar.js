@@ -5,16 +5,33 @@ module.exports = grammar ({
 
 	_globals: $ => choice(
 	    $.func,
-	    //$.struct,
-        //$.impl,
+	    $._struct,
+        $._impl,
 	),
+
+    _struct: $ => seq(
+        'struct',
+        $.identifier,
+        '{',
+        repeat(seq($.identifier, ':', $.type, ';')),
+        '}',
+        ';'
+    ),
+
+    _impl: $ => seq(
+        'impl',
+        $.identifier,
+        '{',
+        repeat($.func),
+        '}'
+    ),
 
     func: $ => seq(
         'fn',
         $.identifier,
         $.fn_args,
         optional(seq('->', $.type)),
-        $.block
+        choice($.block, ';')
     ),
 
     fn_args: $ => seq(
@@ -38,12 +55,12 @@ module.exports = grammar ({
     expr: $ => choice(
         $.ret_expr,
         $.vardelc_expr,
-        $.cond_expr,
+	$.primary
     ),
 
     ret_expr: $ => seq(
         'return',
-        optional($.expr)
+        $.expr
     ),
 
     vardelc_expr: $ => seq(
@@ -57,26 +74,92 @@ module.exports = grammar ({
         ))
     ),
 
-    cond_expr: $ => seq(
-        $.add_expr,
+    multi: $ => prec(10, seq(
+        $.expr,
         choice('==', '<', '>'),
-        $.add_expr,
-    ),
+        $.expr
+    )),
 
-    add_expr: $ => seq(
-        $.mul_expr,
+    additive: $ => prec(9, seq(
+        $.expr,
         choice('+', '-'),
-        $.mul_expr
-    ),
+        $.expr
+    )),
 
-    mul_expr: $ => seq(
-	$.primary,
-    ),
+    cond: $ => prec(8, seq(
+        $.expr,
+        choice('*', '/', '%'),
+        $.expr
+    )),
+
+    assignment: $ => prec(7, seq(
+        $.expr,
+        "=",
+        $.expr
+    )),
+
+    index: $ => prec(6, seq(
+        $.expr,
+        '[',
+        $.expr,
+        ']',
+    )),
+
+    member: $ => prec(5, seq(
+        $.expr,
+        choice('.', '->'),
+        $.expr
+    )),
+
+    call: $ => prec(4, seq(
+        $.expr,
+        '(',
+        commaSep(seq($.expr)),
+        ')'
+    )),
+
+    resolution: $ => prec(3, seq(
+        $.expr,
+        '::',
+        $.expr
+    )),
+
+    unary: $ => prec(2, seq(
+        choice('&', '*', '!'),
+        $.expr
+    )),
+
+    paran: $ => prec(1, seq(
+        '(',
+        $.expr,
+        ')'
+    )),
 
     primary: $ => choice(
         $.identifier,
         $.number_literal,
+        $.string
     ),
+
+	string: $ => seq(
+        choice('L"', 'u"', 'U"', 'u8"', '"'),
+        repeat(choice(
+            token.immediate(prec(1, /[^\\"\n]+/)),
+            $.escape_sequence
+        )),
+        '"',
+    ),
+
+    escape_sequence: $ => token(prec(1, seq(
+      '\\',
+      choice(
+        /[^xuU]/,
+        /\d{2,3}/,
+        /x[0-9a-fA-F]{2,}/,
+        /u[0-9a-fA-F]{4}/,
+        /U[0-9a-fA-F]{8}/
+      )
+    ))),
 
     primitves: $ => choice(
         'u8',
